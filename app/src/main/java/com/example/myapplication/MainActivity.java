@@ -5,7 +5,8 @@ import com.example.myapplication.model.DetalleCompra;
 import com.example.myapplication.model.Transaccion;
 
 import android.content.Intent;
-import android.net.Uri;
+import android.location.Address;
+import android.location.Geocoder;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
@@ -35,7 +36,6 @@ public class MainActivity extends AppCompatActivity {
     private TextView textoSubtotal, textoAhorro, textoTotalFinal;
     private Button botonAgregarProducto, botonFinalizarCompra, botonVerHistorial, botonVerMapa;
 
-
     private ArrayList<Compra> historialDeCompras = new ArrayList<>();
     private ArrayList<Transaccion> libroDeTransacciones = new ArrayList<>();
 
@@ -52,13 +52,12 @@ public class MainActivity extends AppCompatActivity {
         botonAgregarProducto = findViewById(R.id.boton_agregar_producto);
         botonFinalizarCompra = findViewById(R.id.boton_finalizar_compra);
         botonVerHistorial = findViewById(R.id.boton_ver_historial);
-
         botonVerMapa = findViewById(R.id.boton_ver_mapa);
+
         botonVerMapa.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, MapsActivity.class);
             startActivity(intent);
         });
-
 
         adaptador = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, carritoDeCompras);
         listViewCompras.setAdapter(adaptador);
@@ -106,6 +105,7 @@ public class MainActivity extends AppCompatActivity {
     private void procesarYGuardarCompra(String nombreTienda, String direccionTienda) {
         Date fechaActual = new Date();
         double totalCompra = 0;
+
         try {
             totalCompra = Double.parseDouble(textoTotalFinal.getText().toString().replace("$", ""));
         } catch (NumberFormatException e) {
@@ -126,7 +126,25 @@ public class MainActivity extends AppCompatActivity {
             detallesDeLaCompra.add(detalle);
         }
 
-        Compra nuevaCompra = new Compra(fechaActual, nombreTienda, direccionTienda, totalCompra, detallesDeLaCompra);
+        // Obtener latitud y longitud usando Geocoder
+        double lat = 0.0;
+        double lon = 0.0;
+
+        try {
+            Geocoder geocoder = new Geocoder(this);
+            List<Address> addresses = geocoder.getFromLocationName(direccionTienda, 1);
+            if (addresses != null && !addresses.isEmpty()) {
+                Address address = addresses.get(0);
+                lat = address.getLatitude();
+                lon = address.getLongitude();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // Crear compra con latitud y longitud
+        Compra nuevaCompra = new Compra(fechaActual, nombreTienda, direccionTienda, totalCompra,
+                detallesDeLaCompra, lat, lon);
         historialDeCompras.add(nuevaCompra);
 
         Transaccion nuevaTransaccion = new Transaccion(fechaActual, "Compra en " + nombreTienda, totalCompra, "egreso");
@@ -195,8 +213,6 @@ public class MainActivity extends AppCompatActivity {
         builder.create().show();
     }
 }
-
-
 
 
 
