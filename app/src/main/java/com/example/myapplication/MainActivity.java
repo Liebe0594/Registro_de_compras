@@ -33,7 +33,8 @@ public class MainActivity extends AppCompatActivity {
     private ListView listViewCompras;
 
     private TextView textoSubtotal, textoAhorro, textoTotalFinal;
-    private Button botonAgregarProducto, botonFinalizarCompra, botonVerHistorial;
+    private Button botonAgregarProducto, botonFinalizarCompra, botonVerHistorial, botonVerMapa;
+
 
     private ArrayList<Compra> historialDeCompras = new ArrayList<>();
     private ArrayList<Transaccion> libroDeTransacciones = new ArrayList<>();
@@ -51,6 +52,13 @@ public class MainActivity extends AppCompatActivity {
         botonAgregarProducto = findViewById(R.id.boton_agregar_producto);
         botonFinalizarCompra = findViewById(R.id.boton_finalizar_compra);
         botonVerHistorial = findViewById(R.id.boton_ver_historial);
+
+        botonVerMapa = findViewById(R.id.boton_ver_mapa);
+        botonVerMapa.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, MapsActivity.class);
+            startActivity(intent);
+        });
+
 
         adaptador = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, carritoDeCompras);
         listViewCompras.setAdapter(adaptador);
