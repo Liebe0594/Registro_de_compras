@@ -22,15 +22,18 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.osmdroid.config.Configuration;
+import org.osmdroid.events.MapEventsReceiver;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
+import org.osmdroid.views.overlay.MapEventsOverlay;
 import org.osmdroid.views.overlay.Marker;
 
 import java.io.BufferedReader;
@@ -62,16 +65,16 @@ public class MainActivity extends AppCompatActivity {
     private Runnable searchRunnable;
     private GeoPoint ultimaUbicacionEncontrada;
 
+    private static final int HISTORIAL_REQUEST_CODE = 1;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Configuración de osmdroid (esencial)
         Context ctx = getApplicationContext();
         Configuration.getInstance().load(ctx, getSharedPreferences("osmdroid", MODE_PRIVATE));
 
         setContentView(R.layout.activity_main);
 
-        // Inicialización de vistas
         carritoDeCompras = new ArrayList<>();
         listViewCompras = findViewById(R.id.lista_compras);
         textoSubtotal = findViewById(R.id.texto_subtotal);
@@ -84,16 +87,27 @@ public class MainActivity extends AppCompatActivity {
         adaptador = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, carritoDeCompras);
         listViewCompras.setAdapter(adaptador);
 
-        // Configuración de listeners para los botones
         botonAgregarProducto.setOnClickListener(v -> mostrarDialogoAgregarProducto());
         botonFinalizarCompra.setOnClickListener(v -> mostrarDialogoFinalizarCompra());
         botonVerHistorial.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, HistorialActivity.class);
             intent.putExtra("HISTORIAL_COMPRAS", historialDeCompras);
-            startActivity(intent);
+            startActivityForResult(intent, HISTORIAL_REQUEST_CODE);
         });
 
         actualizarTotales();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == HISTORIAL_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
+            ArrayList<Compra> historialActualizado = (ArrayList<Compra>) data.getSerializableExtra("HISTORIAL_ACTUALIZADO");
+            if (historialActualizado != null) {
+                this.historialDeCompras = historialActualizado;
+                Toast.makeText(this, "Historial actualizado.", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     private void mostrarDialogoFinalizarCompra() {
@@ -109,7 +123,6 @@ public class MainActivity extends AppCompatActivity {
         final EditText editNombreTienda = viewDialogo.findViewById(R.id.edit_nombre_tienda);
         final EditText editDireccionTienda = viewDialogo.findViewById(R.id.edit_direccion_tienda);
 
-        // Lógica del mapa en el diálogo
         mapaDelDialogo = viewDialogo.findViewById(R.id.mapa_dialogo);
         mapaDelDialogo.setTileSource(TileSourceFactory.MAPNIK);
         mapaDelDialogo.setMultiTouchControls(true);
@@ -117,12 +130,29 @@ public class MainActivity extends AppCompatActivity {
 
         GeoPoint startPoint = new GeoPoint(-33.4489, -70.6693); // Santiago
         mapaDelDialogo.getController().setCenter(startPoint);
-        ultimaUbicacionEncontrada = null; // Reseteamos la ubicación guardada
+        ultimaUbicacionEncontrada = null;
 
         marcadorDeTienda = new Marker(mapaDelDialogo);
         marcadorDeTienda.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
 
-        // Listeners para los EditText del diálogo
+        MapEventsReceiver mapEventsReceiver = new MapEventsReceiver() {
+            @Override
+            public boolean singleTapConfirmedHelper(GeoPoint p) {
+                // CORRECCIÓN: Pasamos ambos EditText al método
+                actualizarPosicionMarcadorManualmente(p, editDireccionTienda, editNombreTienda);
+                return true;
+            }
+
+            @Override
+            public boolean longPressHelper(GeoPoint p) {
+                return false;
+            }
+        };
+
+        MapEventsOverlay mapEventsOverlay = new MapEventsOverlay(mapEventsReceiver);
+        mapaDelDialogo.getOverlays().add(0, mapEventsOverlay);
+
+
         editDireccionTienda.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -151,6 +181,7 @@ public class MainActivity extends AppCompatActivity {
             @Override public void afterTextChanged(Editable s) {
                 if (marcadorDeTienda != null) {
                     marcadorDeTienda.setTitle(s.toString());
+                    mapaDelDialogo.invalidate();
                 }
             }
         });
@@ -169,9 +200,24 @@ public class MainActivity extends AppCompatActivity {
         builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
 
         AlertDialog dialog = builder.create();
-        dialog.setOnShowListener(d -> mapaDelDialogo.onResume());
-        dialog.setOnDismissListener(d -> mapaDelDialogo.onPause());
+        dialog.setOnShowListener(d -> { if (mapaDelDialogo != null) mapaDelDialogo.onResume(); });
+        dialog.setOnDismissListener(d -> { if (mapaDelDialogo != null) mapaDelDialogo.onPause(); });
         dialog.show();
+    }
+
+    // CORRECCIÓN: El método ahora recibe ambos EditText
+    private void actualizarPosicionMarcadorManualmente(GeoPoint p, EditText editDireccion, EditText editNombre) {
+        ultimaUbicacionEncontrada = p;
+        mapaDelDialogo.getOverlays().remove(marcadorDeTienda);
+        marcadorDeTienda.setPosition(p);
+
+        // CORRECCIÓN: Se usa la referencia directa a editNombre para obtener el título
+        marcadorDeTienda.setTitle(editNombre.getText().toString());
+
+        mapaDelDialogo.getOverlays().add(marcadorDeTienda);
+        mapaDelDialogo.invalidate();
+
+        new ReverseGeocodeTask(editDireccion).execute(p);
     }
 
     private void procesarYGuardarCompra(String nombreTienda, String direccionTienda) {
@@ -181,18 +227,18 @@ public class MainActivity extends AppCompatActivity {
         try {
             totalCompra = Double.parseDouble(textoTotalFinal.getText().toString().replace("$", ""));
         } catch (NumberFormatException e) {
-            Log.e("FinalizarCompra", "Error al parsear el total final");
+            Log.e("FinalizarCompra", "Error al parsear el total final", e);
             Toast.makeText(this, "Error en el cálculo del total.", Toast.LENGTH_SHORT).show();
             return;
         }
+
 
         List<DetalleCompra> detallesDeLaCompra = new ArrayList<>();
         for (Producto p : carritoDeCompras) {
             detallesDeLaCompra.add(new DetalleCompra(p.getNombre(), p.getCantidad(), p.getPrecioUnitario(), p.getDescuento(), p.getPrecioTotal()));
         }
 
-        double lat = 0.0;
-        double lon = 0.0;
+        double lat = 0.0, lon = 0.0;
         if (ultimaUbicacionEncontrada != null) {
             lat = ultimaUbicacionEncontrada.getLatitude();
             lon = ultimaUbicacionEncontrada.getLongitude();
@@ -264,7 +310,6 @@ public class MainActivity extends AppCompatActivity {
         builder.create().show();
     }
 
-    // Clase interna para realizar la geocodificación en segundo plano
     private class GeocodeTask extends AsyncTask<String, Void, GeoPoint> {
         @Override
         protected GeoPoint doInBackground(String... params) {
@@ -315,7 +360,55 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
+    private class ReverseGeocodeTask extends AsyncTask<GeoPoint, Void, String> {
+        private EditText targetEditText;
+
+        ReverseGeocodeTask(EditText target) {
+            this.targetEditText = target;
+        }
+
+        @Override
+        protected String doInBackground(GeoPoint... params) {
+            GeoPoint point = params[0];
+            String urlString = String.format(Locale.US,
+                    "https://nominatim.openstreetmap.org/reverse?format=json&lat=%f&lon=%f&addressdetails=1",
+                    point.getLatitude(), point.getLongitude());
+            try {
+                URL url = new URL(urlString);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("User-Agent", getPackageName());
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String inputLine;
+                while ((inputLine = in.readLine()) != null) {
+                    response.append(inputLine);
+                }
+                in.close();
+
+                JSONObject jsonObject = new JSONObject(response.toString());
+                if (jsonObject.has("display_name")) {
+                    return jsonObject.getString("display_name");
+                }
+            } catch (Exception e) {
+                Log.e("ReverseGeocodeTask", "Error en geocodificación inversa", e);
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(String resultAddress) {
+            if (resultAddress != null && targetEditText != null) {
+                targetEditText.setText(resultAddress);
+            }
+        }
+    }
 }
+
+
+
 
 //Implementar geocodificación en el diálogo de finalizar compra
 //
