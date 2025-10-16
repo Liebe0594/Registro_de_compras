@@ -233,3 +233,11 @@ public class MapsActivity extends AppCompatActivity {
         map.onPause();
     }
 }
+
+//Implementar modo visualización en MapsActivity
+//
+//MapsActivity ahora puede operar en dos modos:
+//1.  **Modo Visualización:** Si recibe una `Compra` desde el historial, muestra su ubicación en el mapa.
+//2.  **Modo Interactivo:** Si no recibe datos, funciona como un buscador de direcciones.
+//
+//Esto permite reutilizar la actividad para mostrar ubicaciones guardadas.
