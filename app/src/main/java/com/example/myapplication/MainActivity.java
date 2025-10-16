@@ -317,6 +317,14 @@ public class MainActivity extends AppCompatActivity {
     }
 }
 
+//Implementar geocodificación en el diálogo de finalizar compra
+//
+//Se integra un mapa de osmdroid en `MainActivity` para geolocalizar la tienda al finalizar una compra.
+//
+//- Se añade un mapa al diálogo de finalización.
+//- Una `AsyncTask` convierte la dirección a coordenadas (lat/lon) usando la API de Nominatim.
+//- Un `Handler` optimiza las llamadas a la API mientras el usuario escribe.
+//- Las coordenadas se guardan en el objeto `Compra`.
 
 
 
