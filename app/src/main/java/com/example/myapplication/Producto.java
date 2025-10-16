@@ -65,3 +65,11 @@ public class Producto {
         return texto;
     }
 }
+
+//Añadir modelo de datos para Producto
+//
+//Se crea la clase `Producto` para representar artículos en el carrito.
+//
+//- Almacena nombre, cantidad, precio y descuento.
+//- Incluye métodos para calcular el subtotal, el ahorro y el total con descuento.
+//- El método `toString()` está formateado para mostrarse correctamente en la `ListView`.
