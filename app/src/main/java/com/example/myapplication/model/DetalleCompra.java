@@ -24,4 +24,6 @@ public class DetalleCompra implements Serializable {
     public double getDescuento() { return descuento; }
     public double getTotal() { return total; }
 }
+//Se crea la clase `DetalleCompra` para representar cada artículo dentro de una compra. Almacena el nombre del producto, cantidad, precio, descuento y total.
+//Implementa `Serializable` para ser utilizada dentro de la lista de detalles de la clase `Compra`.
 
