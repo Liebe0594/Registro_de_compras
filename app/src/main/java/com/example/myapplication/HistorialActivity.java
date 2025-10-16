@@ -85,3 +85,10 @@ public class HistorialActivity extends AppCompatActivity {
     }
     // --- FIN DE CAMBIOS ---
 }
+//Mostrar total general en el historial de compras
+//
+//Se añade la funcionalidad para calcular y mostrar el gasto total acumulado en la pantalla de `HistorialActivity`.
+//
+//- Se agregan un TextView y un Layout para el total.
+//- Se implementa un método que suma el total de cada compra.
+//- El layout del total se oculta si no hay compras en el historial.
