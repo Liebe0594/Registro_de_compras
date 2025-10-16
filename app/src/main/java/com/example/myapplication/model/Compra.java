@@ -70,6 +70,8 @@ public class Compra implements Serializable {
                 " (" + fechaFormateada + ")\nTotal: " + String.format(Locale.US, "$%.2f", total) +
                 "\nProductos:\n" + detallesStr.toString();
     }
-
 }
+// Se crea la clase `Compra` para encapsular la información de una transacción. Incluye detalles de la tienda, total, lista de productos y campos para geolocalización (latitud y longitud).
+//La clase implementa `Serializable` para facilitar el paso de datos entre componentes de Android.
+
 

@@ -49,7 +49,6 @@ public class Producto {
     }
 
     // Método para calcular el precio total del producto
-    // prueba cambio
     public double getPrecioTotal() {
         double precioConDescuento = precioUnitario * (1 - (descuento / 100.0));
         return precioConDescuento * cantidad;
