@@ -11,16 +11,46 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
         android:layout_marginBottom="16dp"
         android:text="Historial de Compras"
         android:textSize="24sp"
         android:textStyle="bold" />
 
+    <!-- INICIO DE CAMBIOS: Contenedor para el Total General -->
+    <LinearLayout
+        android:id="@+id/layout_total_general"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/titulo_historial"
+        android:layout_marginBottom="16dp"
+        android:background="#E8E8E8"
+        android:orientation="horizontal"
+        android:padding="12dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Total General Gastado:"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/texto_total_general"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="$0.00"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+    <!-- FIN DE CAMBIOS -->
+
     <ListView
         android:id="@+id/lista_historial"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_below="@id/titulo_historial" />
+        android:layout_below="@id/layout_total_general" />
 
     <TextView
         android:id="@+id/texto_vacio"

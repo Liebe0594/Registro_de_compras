@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:orientation="vertical"
     android:padding="24dp">
 
     <TextView
@@ -24,7 +24,17 @@
         android:id="@+id/edit_direccion_tienda"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Dirección de la tienda"
+        android:layout_marginTop="8dp"
+        android:hint="Busca o escribe la dirección aquí..."
         android:inputType="textPostalAddress"/>
 
+    <!-- Contenedor del Mapa (INICIO DE CAMBIOS) -->
+    <org.osmdroid.views.MapView
+        android:id="@+id/mapa_dialogo"
+        android:layout_width="match_parent"
+        android:layout_height="250dp"
+        android:layout_marginTop="16dp" />
+    <!-- FIN DE CAMBIOS -->
+
 </LinearLayout>
+

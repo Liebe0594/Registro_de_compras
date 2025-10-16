@@ -1,134 +1,235 @@
 package com.example.myapplication;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
+import android.content.Context;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.util.Log;
+import android.view.View;
+import android.widget.EditText;
+import android.widget.LinearLayout; // Importar LinearLayout
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 
-import com.example.myapplication.model.Compra;
-import com.example.myapplication.model.DetalleCompra;
+import com.example.myapplication.model.Compra; // Importar tu modelo Compra
 
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.osmdroid.config.Configuration;
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.Marker;
 
-import java.util.ArrayList;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
 
 public class MapsActivity extends AppCompatActivity {
 
-    private static final int LOCATION_PERMISSION_REQUEST_CODE = 100;
-
     private MapView map;
-    private ArrayList<Compra> historialDeCompras;
+    private EditText editTextStoreName;
+    private EditText editTextStoreAddress;
+    private Marker storeMarker;
+
+    private Handler searchHandler = new Handler();
+    private Runnable searchRunnable;
+
+    // --- INICIO DE NUEVOS CAMBIOS ---
+    private LinearLayout formContainer; // Referencia al contenedor del formulario
+    private Compra compraParaMostrar; // Variable para guardar la compra recibida
+    // --- FIN DE NUEVOS CAMBIOS ---
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Configuration.getInstance().load(getApplicationContext(), getSharedPreferences("prefs", MODE_PRIVATE));
+
+        Context ctx = getApplicationContext();
+        Configuration.getInstance().load(ctx, getSharedPreferences("osmdroid", MODE_PRIVATE));
+
         setContentView(R.layout.activity_maps);
 
+        // --- INICIO DE NUEVOS CAMBIOS ---
+        // Obtenemos la compra enviada desde HistorialActivity, si existe.
+        if (getIntent().hasExtra("COMPRA_SELECCIONADA")) {
+            compraParaMostrar = (Compra) getIntent().getSerializableExtra("COMPRA_SELECCIONADA");
+        }
+        // --- FIN DE NUEVOS CAMBIOS ---
+
+        // Inicialización de vistas
         map = findViewById(R.id.map);
-        map.setBuiltInZoomControls(true);
+        editTextStoreName = findViewById(R.id.edit_text_store_name);
+        editTextStoreAddress = findViewById(R.id.edit_text_store_address);
+        formContainer = findViewById(R.id.form_container); // Obtenemos el contenedor
+
+        // Configuración inicial del mapa
+        map.setTileSource(TileSourceFactory.MAPNIK);
         map.setMultiTouchControls(true);
         map.getController().setZoom(12.0);
 
-        // Pedir permisos de ubicación
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        // Inicializar el marcador
+        storeMarker = new Marker(map);
+        storeMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
 
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION},
-                    LOCATION_PERMISSION_REQUEST_CODE);
-        }
-
-        // Obtener historial de compras desde MainActivity
-        historialDeCompras = (ArrayList<Compra>) getIntent().getSerializableExtra("HISTORIAL_COMPRAS");
-
-        // Centrar mapa: última compra o Santiago
-        centrarMapa();
-        mostrarMarcadoresCompras();
-    }
-
-    private void centrarMapa() {
-        GeoPoint centro;
-        if (historialDeCompras != null && !historialDeCompras.isEmpty()) {
-            Compra ultimaCompra = historialDeCompras.get(historialDeCompras.size() - 1);
-            double lat = ultimaCompra.getLatitud();
-            double lon = ultimaCompra.getLongitud();
-            if (lat != 0 && lon != 0) {
-                centro = new GeoPoint(lat, lon);
-            } else {
-                centro = new GeoPoint(-33.4489, -70.6693); // Santiago
-            }
+        // --- INICIO DE LÓGICA DE MODO DUAL ---
+        if (compraParaMostrar != null) {
+            // MODO VISUALIZACIÓN: Recibimos una compra, mostramos su ubicación.
+            setupVisualizationMode();
         } else {
-            centro = new GeoPoint(-33.4489, -70.6693); // Santiago
+            // MODO INTERACTIVO: No recibimos nada, activamos la búsqueda en tiempo real.
+            setupInteractiveMode();
         }
-        map.getController().setCenter(centro);
+        // --- FIN DE LÓGICA DE MODO DUAL ---
     }
 
-    private void mostrarMarcadoresCompras() {
-        if (historialDeCompras == null) return;
+    private void setupInteractiveMode() {
+        formContainer.setVisibility(View.VISIBLE); // Mostramos el formulario
 
-        for (Compra compra : historialDeCompras) {
-            double lat = compra.getLatitud();
-            double lon = compra.getLongitud();
+        // Centrar en una ubicación inicial para la búsqueda
+        GeoPoint startPoint = new GeoPoint(-33.4489, -70.6693); // Santiago
+        map.getController().setCenter(startPoint);
 
-            if (lat != 0 && lon != 0) {
-                GeoPoint punto = new GeoPoint(lat, lon);
-                Marker marker = new Marker(map);
-                marker.setPosition(punto);
-                marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+        // Activamos los listeners para la búsqueda en tiempo real
+        setupInputListeners();
+    }
 
-                // Iconos según gasto
-                double total = compra.getTotal();
-                if (total < 10000) {
-                    marker.setIcon(getResources().getDrawable(R.drawable.marker_verde));
-                } else if (total < 50000) {
-                    marker.setIcon(getResources().getDrawable(R.drawable.marker_amarillo));
-                } else {
-                    marker.setIcon(getResources().getDrawable(R.drawable.marker_rojo));
+    private void setupVisualizationMode() {
+        formContainer.setVisibility(View.GONE); // Ocultamos el formulario de búsqueda
+
+        // Verificamos si la compra tiene una ubicación válida
+        if (compraParaMostrar.getLatitud() != 0.0 || compraParaMostrar.getLongitud() != 0.0) {
+            GeoPoint storeLocation = new GeoPoint(compraParaMostrar.getLatitud(), compraParaMostrar.getLongitud());
+
+            // Colocamos el marcador en el mapa
+            storeMarker.setPosition(storeLocation);
+            storeMarker.setTitle(compraParaMostrar.getNombreTienda());
+
+            map.getOverlays().add(storeMarker);
+
+            // Centramos el mapa en la ubicación y hacemos zoom
+            map.getController().setCenter(storeLocation);
+            map.getController().setZoom(17.0);
+
+            // Abrimos la ventana de información del marcador automáticamente
+            storeMarker.showInfoWindow();
+
+        } else {
+            // Si la compra no tiene coordenadas, mostramos un mensaje
+            Toast.makeText(this, "Esta compra no tiene una ubicación guardada.", Toast.LENGTH_LONG).show();
+            // Centramos el mapa en la ubicación por defecto
+            GeoPoint startPoint = new GeoPoint(-33.4489, -70.6693);
+            map.getController().setCenter(startPoint);
+        }
+    }
+
+    private void setupInputListeners() {
+        // ... (Este método es el mismo que antes, no necesita cambios)
+        editTextStoreAddress.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (searchRunnable != null) {
+                    searchHandler.removeCallbacks(searchRunnable);
                 }
-
-                marker.setTitle(compra.getNombreTienda());
-
-                // Mostrar detalles al hacer click
-                marker.setOnMarkerClickListener((m, mapView) -> {
-                    StringBuilder productos = new StringBuilder();
-                    for (DetalleCompra det : compra.getDetalles()) {
-                        productos.append(det.getCantidad())
-                                .append("x ")
-                                .append(det.getNombre())
-                                .append("\n");
+                searchRunnable = () -> {
+                    String addressString = s.toString();
+                    if (!addressString.trim().isEmpty()) {
+                        new GeocodeTask().execute(addressString);
+                    } else {
+                        map.getOverlays().remove(storeMarker);
+                        map.invalidate();
                     }
-                    Toast.makeText(this,
-                            "Tienda: " + compra.getNombreTienda() +
-                                    "\nDirección: " + compra.getDireccionTienda() +
-                                    "\nTotal: $" + String.format("%.2f", compra.getTotal()) +
-                                    "\nProductos:\n" + productos.toString(),
-                            Toast.LENGTH_LONG).show();
-                    return true;
-                });
+                };
+                searchHandler.postDelayed(searchRunnable, 1000);
+            }
+        });
 
-                map.getOverlays().add(marker);
+        editTextStoreName.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                if (storeMarker != null) {
+                    storeMarker.setTitle(s.toString());
+                }
+            }
+        });
+    }
+
+    // --- GeocodeTask y updateMarkerPosition son los mismos que antes ---
+    // (Incluidos aquí para que el archivo esté completo)
+
+    private class GeocodeTask extends AsyncTask<String, Void, GeoPoint> {
+        @Override
+        protected GeoPoint doInBackground(String... params) {
+            String addressQuery = params[0];
+            String urlString = "https://nominatim.openstreetmap.org/search?q=" +
+                    URLEncoder.encode(addressQuery) + "&format=json&addressdetails=1&limit=1";
+            try {
+                URL url = new URL(urlString);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("User-Agent", getPackageName());
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String inputLine;
+                while ((inputLine = in.readLine()) != null) {
+                    response.append(inputLine);
+                }
+                in.close();
+
+                JSONArray jsonArray = new JSONArray(response.toString());
+                if (jsonArray.length() > 0) {
+                    JSONObject result = jsonArray.getJSONObject(0);
+                    double lat = result.getDouble("lat");
+                    double lon = result.getDouble("lon");
+                    return new GeoPoint(lat, lon);
+                }
+            } catch (Exception e) {
+                Log.e("GeocodeTask", "Error en la geocodificación", e);
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(GeoPoint resultPoint) {
+            if (resultPoint != null) {
+                updateMarkerPosition(resultPoint);
+            } else {
+                map.getOverlays().remove(storeMarker);
+                map.invalidate();
             }
         }
     }
 
-    // Manejo de permisos
+    private void updateMarkerPosition(GeoPoint point) {
+        map.getOverlays().remove(storeMarker);
+        storeMarker.setPosition(point);
+        storeMarker.setTitle(editTextStoreName.getText().toString());
+        map.getOverlays().add(storeMarker);
+        map.getController().animateTo(point);
+        map.invalidate();
+    }
+
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "Permiso de ubicación concedido", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "Permiso de ubicación denegado. No se podrá centrar en tu ubicación real.", Toast.LENGTH_LONG).show();
-            }
-        }
+    public void onResume() {
+        super.onResume();
+        map.onResume();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        map.onPause();
     }
 }
