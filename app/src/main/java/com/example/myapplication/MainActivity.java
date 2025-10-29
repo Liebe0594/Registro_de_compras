@@ -87,6 +87,11 @@ public class MainActivity extends AppCompatActivity {
         adaptador = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, carritoDeCompras);
         listViewCompras.setAdapter(adaptador);
 
+        DatabaseHelper dbHelper = new DatabaseHelper(this);
+        historialDeCompras.clear();
+        historialDeCompras.addAll(dbHelper.obtenerTodasLasCompras());
+
+
         botonAgregarProducto.setOnClickListener(v -> mostrarDialogoAgregarProducto());
         botonFinalizarCompra.setOnClickListener(v -> mostrarDialogoFinalizarCompra());
         botonVerHistorial.setOnClickListener(v -> {
@@ -94,6 +99,7 @@ public class MainActivity extends AppCompatActivity {
             intent.putExtra("HISTORIAL_COMPRAS", historialDeCompras);
             startActivityForResult(intent, HISTORIAL_REQUEST_CODE);
         });
+
 
         actualizarTotales();
     }
@@ -222,16 +228,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void procesarYGuardarCompra(String nombreTienda, String direccionTienda) {
         Date fechaActual = new Date();
-        double totalCompra = 0;
-
-        try {
-            totalCompra = Double.parseDouble(textoTotalFinal.getText().toString().replace("$", ""));
-        } catch (NumberFormatException e) {
-            Log.e("FinalizarCompra", "Error al parsear el total final", e);
-            Toast.makeText(this, "Error en el cálculo del total.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
+        double totalCompra = Double.parseDouble(textoTotalFinal.getText().toString().replace("$", ""));
 
         List<DetalleCompra> detallesDeLaCompra = new ArrayList<>();
         for (Producto p : carritoDeCompras) {
@@ -245,16 +242,24 @@ public class MainActivity extends AppCompatActivity {
         }
 
         Compra nuevaCompra = new Compra(fechaActual, nombreTienda, direccionTienda, totalCompra, detallesDeLaCompra, lat, lon);
+
+        // Guardar en memoria
         historialDeCompras.add(nuevaCompra);
 
+        // Guardar en SQLite
+        DatabaseHelper dbHelper = new DatabaseHelper(this);
+        dbHelper.insertarCompra(nuevaCompra);
+
+        // También guardamos la transacción
         Transaccion nuevaTransaccion = new Transaccion(fechaActual, "Compra en " + nombreTienda, totalCompra, "egreso");
         libroDeTransacciones.add(nuevaTransaccion);
 
-        Toast.makeText(this, "¡Compra en '" + nombreTienda + "' registrada!", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "¡Compra registrada!", Toast.LENGTH_LONG).show();
         carritoDeCompras.clear();
         adaptador.notifyDataSetChanged();
         actualizarTotales();
     }
+
 
     private void actualizarTotales() {
         double subtotal = 0.0, totalFinal = 0.0, ahorroTotal = 0.0;
@@ -418,6 +423,5 @@ public class MainActivity extends AppCompatActivity {
 //- Una `AsyncTask` convierte la dirección a coordenadas (lat/lon) usando la API de Nominatim.
 //- Un `Handler` optimiza las llamadas a la API mientras el usuario escribe.
 //- Las coordenadas se guardan en el objeto `Compra`.
-
 
 
