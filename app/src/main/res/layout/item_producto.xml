@@ -8,7 +8,9 @@
     android:layout_marginHorizontal="8dp"
     android:layout_marginVertical="4dp"
     app:cardCornerRadius="12dp"
-    app:cardElevation="4dp">
+    app:cardElevation="3dp"
+    app:strokeColor="#E0E0E0"
+    app:strokeWidth="1dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -23,12 +25,13 @@
             android:layout_marginEnd="16dp"
             android:ellipsize="end"
             android:maxLines="2"
-            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
-            android:textColor="?attr/colorOnSurface"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#000000"
             app:layout_constraintEnd_toStartOf="@+id/texto_total_producto"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            tools:text="Leche de Almendras Sin Azúcar de Larga Duración" />
+            tools:text="Leche de Almendras" />
 
         <!-- Detalles (Cantidad x Precio) -->
         <TextView
@@ -36,8 +39,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android.textAppearance="@style/TextAppearance.Material3.BodyMedium"
-            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="14sp"
+            android:textColor="#666666"
             app:layout_constraintStart_toStartOf="@+id/texto_nombre_producto"
             app:layout_constraintTop_toBottomOf="@+id/texto_nombre_producto"
             tools:text="2 x $1.50" />
@@ -47,13 +50,14 @@
             android:id="@+id/texto_total_producto"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
-            android:textColor="?attr/colorPrimary"
+            android:textSize="20sp"
             android:textStyle="bold"
+            android:textColor="#2196F3"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             tools:text="$3.00" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
+
 </com.google.android.material.card.MaterialCardView>

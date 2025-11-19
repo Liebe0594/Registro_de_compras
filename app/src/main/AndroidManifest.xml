@@ -42,6 +42,7 @@
         <!-- Tus otras actividades (HistorialActivity, MapsActivity) se mantienen igual -->
         <activity android:name=".HistorialActivity" />
         <activity android:name=".MapsActivity" />
+        <activity android:name=".DetalleHistorialActivity" />
 
     </application>
 </manifest>

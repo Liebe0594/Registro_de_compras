@@ -3,27 +3,38 @@ package com.example.myapplication.model;
 import java.io.Serializable;
 
 public class DetalleCompra implements Serializable {
-    private String nombre;
+    private String nombreProducto;
     private int cantidad;
-    private double precio;
+    private double precioUnitario;
     private double descuento;
-    private double total;
+    private double totalLinea;
 
-    public DetalleCompra(String nombre, int cantidad, double precio, double descuento, double total) {
-        this.nombre = nombre;
-        this.cantidad = cantidad;
-        this.precio = precio;
-        this.descuento = descuento;
-        this.total = total;
+    // --- 1. CONSTRUCTOR VACÍO (OBLIGATORIO) ---
+    public DetalleCompra() {
     }
 
-    // Getters
-    public String getNombre() { return nombre; }
-    public int getCantidad() { return cantidad; }
-    public double getPrecio() { return precio; }
-    public double getDescuento() { return descuento; }
-    public double getTotal() { return total; }
-}
-//Se crea la clase `DetalleCompra` para representar cada artículo dentro de una compra. Almacena el nombre del producto, cantidad, precio, descuento y total.
-//Implementa `Serializable` para ser utilizada dentro de la lista de detalles de la clase `Compra`.
+    // --- 2. CONSTRUCTOR COMPLETO ---
+    public DetalleCompra(String nombreProducto, int cantidad, double precioUnitario, double descuento, double totalLinea) {
+        this.nombreProducto = nombreProducto;
+        this.cantidad = cantidad;
+        this.precioUnitario = precioUnitario;
+        this.descuento = descuento;
+        this.totalLinea = totalLinea;
+    }
 
+    // --- 3. GETTERS Y SETTERS ---
+    public String getNombreProducto() { return nombreProducto; }
+    public void setNombreProducto(String nombreProducto) { this.nombreProducto = nombreProducto; }
+
+    public int getCantidad() { return cantidad; }
+    public void setCantidad(int cantidad) { this.cantidad = cantidad; }
+
+    public double getPrecioUnitario() { return precioUnitario; }
+    public void setPrecioUnitario(double precioUnitario) { this.precioUnitario = precioUnitario; }
+
+    public double getDescuento() { return descuento; }
+    public void setDescuento(double descuento) { this.descuento = descuento; }
+
+    public double getTotalLinea() { return totalLinea; }
+    public void setTotalLinea(double totalLinea) { this.totalLinea = totalLinea; }
+}

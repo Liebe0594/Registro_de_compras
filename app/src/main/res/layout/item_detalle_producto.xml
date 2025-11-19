@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="12dp"
+    android:background="@drawable/abc_popup_background_mtrl_mult">
+
+    <!-- Cantidad -->
+    <TextView
+        android:id="@+id/detalle_cantidad"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="2 x"
+        android:textStyle="bold"
+        android:textSize="16sp"
+        android:layout_marginEnd="8dp"/>
+
+    <!-- Nombre y Precio Unitario -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/detalle_nombre"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Coca Cola 3L"
+            android:textSize="16sp"
+            android:textColor="#000000"/>
+
+        <TextView
+            android:id="@+id/detalle_precio_unit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="$1500 c/u"
+            android:textSize="12sp"
+            android:textColor="#757575"/>
+    </LinearLayout>
+
+    <!-- Total Línea -->
+    <TextView
+        android:id="@+id/detalle_total_linea"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="$3000"
+        android:textStyle="bold"
+        android:textColor="#388E3C"/>
+
+</LinearLayout>

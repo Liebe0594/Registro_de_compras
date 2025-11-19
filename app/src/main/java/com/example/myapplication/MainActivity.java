@@ -1,9 +1,5 @@
 package com.example.myapplication;
 
-import com.example.myapplication.model.Compra;
-import com.example.myapplication.model.DetalleCompra;
-import com.example.myapplication.model.Transaccion;
-
 import android.content.Context;
 import android.content.Intent;
 import android.os.AsyncTask;
@@ -15,16 +11,24 @@ import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.ItemTouchHelper; // IMPORTANTE PARA EL SWIPE
+
+import com.example.myapplication.model.Compra;
+import com.example.myapplication.model.DetalleCompra;
+import com.example.myapplication.model.Producto;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -48,17 +52,22 @@ import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
+    // --- UI Variables ---
     private ArrayList<Producto> carritoDeCompras;
-    private ArrayAdapter<Producto> adaptador;
-    private ListView listViewCompras;
+    private RecyclerView recyclerViewCarrito;
+    private ProductoAdapter productoAdapter;
 
     private TextView textoSubtotal, textoAhorro, textoTotalFinal;
-    private Button botonAgregarProducto, botonFinalizarCompra, botonVerHistorial;
+    private Button botonAgregarProducto, botonFinalizarCompra, botonVerHistorial, botonLimpiarCarrito;
 
-    private ArrayList<Compra> historialDeCompras = new ArrayList<>();
-    private ArrayList<Transaccion> libroDeTransacciones = new ArrayList<>();
+    // --- Datos y Base de Datos Local ---
+    private DatabaseHelper dbHelper;
 
-    // Variables para el mapa en el diálogo
+    // --- Firebase ---
+    private FirebaseAuth mAuth;
+    private FirebaseFirestore db;
+
+    // --- Variables para el Mapa (Osmdroid) ---
     private MapView mapaDelDialogo;
     private Marker marcadorDeTienda;
     private Handler searchHandler = new Handler();
@@ -70,208 +79,113 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Configuración de Osmdroid
         Context ctx = getApplicationContext();
         Configuration.getInstance().load(ctx, getSharedPreferences("osmdroid", MODE_PRIVATE));
 
         setContentView(R.layout.activity_main);
 
-        carritoDeCompras = new ArrayList<>();
-        listViewCompras = findViewById(R.id.lista_compras);
+        // Inicializar Firebase
+        mAuth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance();
+
+        // Inicializar DB Local
+        dbHelper = new DatabaseHelper(this);
+
+        // Inicializar Vistas
         textoSubtotal = findViewById(R.id.texto_subtotal);
         textoAhorro = findViewById(R.id.texto_ahorro);
         textoTotalFinal = findViewById(R.id.texto_total_final);
+
         botonAgregarProducto = findViewById(R.id.boton_agregar_producto);
         botonFinalizarCompra = findViewById(R.id.boton_finalizar_compra);
         botonVerHistorial = findViewById(R.id.boton_ver_historial);
+        botonLimpiarCarrito = findViewById(R.id.boton_limpiar_carrito);
 
-        adaptador = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, carritoDeCompras);
-        listViewCompras.setAdapter(adaptador);
+        // --- CONFIGURACIÓN DEL RECYCLERVIEW (CARRITO) ---
+        carritoDeCompras = new ArrayList<>();
+        recyclerViewCarrito = findViewById(R.id.recycler_view_carrito);
 
-        DatabaseHelper dbHelper = new DatabaseHelper(this);
-        historialDeCompras.clear();
-        historialDeCompras.addAll(dbHelper.obtenerTodasLasCompras());
+        // 1. Inicializamos el adaptador pasándole: la lista Y el método para editar (this::mostrarDialogoEditarProducto)
+        productoAdapter = new ProductoAdapter(carritoDeCompras, this::mostrarDialogoEditarProducto);
 
+        recyclerViewCarrito.setLayoutManager(new LinearLayoutManager(this));
+        recyclerViewCarrito.setAdapter(productoAdapter);
 
-        botonAgregarProducto.setOnClickListener(v -> mostrarDialogoAgregarProducto());
-        botonFinalizarCompra.setOnClickListener(v -> mostrarDialogoFinalizarCompra());
-        botonVerHistorial.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, HistorialActivity.class);
-            intent.putExtra("HISTORIAL_COMPRAS", historialDeCompras);
-            startActivityForResult(intent, HISTORIAL_REQUEST_CODE);
-        });
-
-
-        actualizarTotales();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == HISTORIAL_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
-            ArrayList<Compra> historialActualizado = (ArrayList<Compra>) data.getSerializableExtra("HISTORIAL_ACTUALIZADO");
-            if (historialActualizado != null) {
-                this.historialDeCompras = historialActualizado;
-                Toast.makeText(this, "Historial actualizado.", Toast.LENGTH_SHORT).show();
-            }
-        }
-    }
-
-    private void mostrarDialogoFinalizarCompra() {
-        if (carritoDeCompras.isEmpty()) {
-            Toast.makeText(this, "El carrito está vacío. Añade productos primero.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        View viewDialogo = LayoutInflater.from(this).inflate(R.layout.dialogo_finalizar_compra, null);
-        builder.setView(viewDialogo);
-
-        final EditText editNombreTienda = viewDialogo.findViewById(R.id.edit_nombre_tienda);
-        final EditText editDireccionTienda = viewDialogo.findViewById(R.id.edit_direccion_tienda);
-
-        mapaDelDialogo = viewDialogo.findViewById(R.id.mapa_dialogo);
-        mapaDelDialogo.setTileSource(TileSourceFactory.MAPNIK);
-        mapaDelDialogo.setMultiTouchControls(true);
-        mapaDelDialogo.getController().setZoom(12.0);
-
-        GeoPoint startPoint = new GeoPoint(-33.4489, -70.6693); // Santiago
-        mapaDelDialogo.getController().setCenter(startPoint);
-        ultimaUbicacionEncontrada = null;
-
-        marcadorDeTienda = new Marker(mapaDelDialogo);
-        marcadorDeTienda.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
-
-        MapEventsReceiver mapEventsReceiver = new MapEventsReceiver() {
+        // 2. CONFIGURAR SWIPE TO DELETE (Deslizar para borrar)
+        ItemTouchHelper.SimpleCallback simpleCallback = new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
             @Override
-            public boolean singleTapConfirmedHelper(GeoPoint p) {
-                // CORRECCIÓN: Pasamos ambos EditText al método
-                actualizarPosicionMarcadorManualmente(p, editDireccionTienda, editNombreTienda);
-                return true;
+            public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, RecyclerView.ViewHolder target) {
+                return false; // No queremos mover (drag & drop), solo deslizar
             }
 
             @Override
-            public boolean longPressHelper(GeoPoint p) {
-                return false;
+            public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
+                int position = viewHolder.getAdapterPosition();
+                Producto productoBorrado = carritoDeCompras.get(position);
+
+                // Borrar de la lista y notificar
+                carritoDeCompras.remove(position);
+                productoAdapter.notifyItemRemoved(position);
+
+                // Actualizar totales
+                actualizarTotales();
+
+                Toast.makeText(MainActivity.this, "Borrado: " + productoBorrado.getNombre(), Toast.LENGTH_SHORT).show();
             }
         };
 
-        MapEventsOverlay mapEventsOverlay = new MapEventsOverlay(mapEventsReceiver);
-        mapaDelDialogo.getOverlays().add(0, mapEventsOverlay);
+        // Unir el gesto al RecyclerView
+        new ItemTouchHelper(simpleCallback).attachToRecyclerView(recyclerViewCarrito);
 
 
-        editDireccionTienda.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override
-            public void afterTextChanged(Editable s) {
-                if (searchRunnable != null) searchHandler.removeCallbacks(searchRunnable);
-                searchRunnable = () -> {
-                    String address = s.toString();
-                    if (!address.trim().isEmpty()) {
-                        new GeocodeTask().execute(address);
-                    } else {
-                        mapaDelDialogo.getOverlays().remove(marcadorDeTienda);
-                        mapaDelDialogo.invalidate();
-                        ultimaUbicacionEncontrada = null;
-                    }
-                };
-                searchHandler.postDelayed(searchRunnable, 1000);
-            }
+        // --- LISTENERS (EVENTOS DE LOS BOTONES) ---
+
+        botonAgregarProducto.setOnClickListener(v -> mostrarDialogoAgregarProducto());
+        botonFinalizarCompra.setOnClickListener(v -> mostrarDialogoFinalizarCompra());
+
+        botonVerHistorial.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, HistorialActivity.class);
+            startActivityForResult(intent, HISTORIAL_REQUEST_CODE);
         });
 
-        editNombreTienda.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override public void afterTextChanged(Editable s) {
-                if (marcadorDeTienda != null) {
-                    marcadorDeTienda.setTitle(s.toString());
-                    mapaDelDialogo.invalidate();
-                }
-            }
-        });
-
-        builder.setPositiveButton("Guardar Compra", (dialog, which) -> {
-            String nombreTienda = editNombreTienda.getText().toString().trim();
-            String direccionTienda = editDireccionTienda.getText().toString().trim();
-
-            if (TextUtils.isEmpty(nombreTienda) || TextUtils.isEmpty(direccionTienda)) {
-                Toast.makeText(this, "El nombre y la dirección de la tienda son obligatorios", Toast.LENGTH_SHORT).show();
+        // Lógica del botón Limpiar
+        botonLimpiarCarrito.setOnClickListener(v -> {
+            if (carritoDeCompras.isEmpty()) {
+                Toast.makeText(MainActivity.this, "El carrito ya está vacío", Toast.LENGTH_SHORT).show();
                 return;
             }
-            procesarYGuardarCompra(nombreTienda, direccionTienda);
+
+            new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("¿Limpiar Carrito?")
+                    .setMessage("¿Estás seguro de que deseas eliminar todos los productos?")
+                    .setPositiveButton("Sí, Limpiar", (dialog, which) -> limpiarDespuesDeGuardar())
+                    .setNegativeButton("Cancelar", null)
+                    .show();
         });
 
-        builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
-
-        AlertDialog dialog = builder.create();
-        dialog.setOnShowListener(d -> { if (mapaDelDialogo != null) mapaDelDialogo.onResume(); });
-        dialog.setOnDismissListener(d -> { if (mapaDelDialogo != null) mapaDelDialogo.onPause(); });
-        dialog.show();
-    }
-
-    // CORRECCIÓN: El método ahora recibe ambos EditText
-    private void actualizarPosicionMarcadorManualmente(GeoPoint p, EditText editDireccion, EditText editNombre) {
-        ultimaUbicacionEncontrada = p;
-        mapaDelDialogo.getOverlays().remove(marcadorDeTienda);
-        marcadorDeTienda.setPosition(p);
-
-        // CORRECCIÓN: Se usa la referencia directa a editNombre para obtener el título
-        marcadorDeTienda.setTitle(editNombre.getText().toString());
-
-        mapaDelDialogo.getOverlays().add(marcadorDeTienda);
-        mapaDelDialogo.invalidate();
-
-        new ReverseGeocodeTask(editDireccion).execute(p);
-    }
-
-    private void procesarYGuardarCompra(String nombreTienda, String direccionTienda) {
-        Date fechaActual = new Date();
-        double totalCompra = Double.parseDouble(textoTotalFinal.getText().toString().replace("$", ""));
-
-        List<DetalleCompra> detallesDeLaCompra = new ArrayList<>();
-        for (Producto p : carritoDeCompras) {
-            detallesDeLaCompra.add(new DetalleCompra(p.getNombre(), p.getCantidad(), p.getPrecioUnitario(), p.getDescuento(), p.getPrecioTotal()));
-        }
-
-        double lat = 0.0, lon = 0.0;
-        if (ultimaUbicacionEncontrada != null) {
-            lat = ultimaUbicacionEncontrada.getLatitude();
-            lon = ultimaUbicacionEncontrada.getLongitude();
-        }
-
-        Compra nuevaCompra = new Compra(fechaActual, nombreTienda, direccionTienda, totalCompra, detallesDeLaCompra, lat, lon);
-
-        // Guardar en memoria
-        historialDeCompras.add(nuevaCompra);
-
-        // Guardar en SQLite
-        DatabaseHelper dbHelper = new DatabaseHelper(this);
-        dbHelper.insertarCompra(nuevaCompra);
-
-        // También guardamos la transacción
-        Transaccion nuevaTransaccion = new Transaccion(fechaActual, "Compra en " + nombreTienda, totalCompra, "egreso");
-        libroDeTransacciones.add(nuevaTransaccion);
-
-        Toast.makeText(this, "¡Compra registrada!", Toast.LENGTH_LONG).show();
-        carritoDeCompras.clear();
-        adaptador.notifyDataSetChanged();
         actualizarTotales();
     }
 
+    // --- Lógica de Totales ---
 
     private void actualizarTotales() {
         double subtotal = 0.0, totalFinal = 0.0, ahorroTotal = 0.0;
         for (Producto producto : carritoDeCompras) {
-            subtotal += producto.getPrecioSubtotal();
+            subtotal += (producto.getCantidad() * producto.getPrecioUnitario());
             totalFinal += producto.getPrecioTotal();
-            ahorroTotal += producto.getAhorro();
+            ahorroTotal += (producto.getPrecioSubtotal() - producto.getPrecioTotal());
         }
+
         textoSubtotal.setText(String.format(Locale.US, "$%.2f", subtotal));
-        textoAhorro.setText(String.format(Locale.US, "-$%.2f", ahorroTotal));
+        if(textoAhorro != null) {
+            textoAhorro.setText(String.format(Locale.US, "-$%.2f", ahorroTotal));
+        }
         textoTotalFinal.setText(String.format(Locale.US, "$%.2f", totalFinal));
     }
+
+    // --- Diálogos ---
 
     private void mostrarDialogoAgregarProducto() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -287,10 +201,10 @@ public class MainActivity extends AppCompatActivity {
             String nombre = editNombre.getText().toString().trim();
             String cantidadStr = editCantidad.getText().toString().trim();
             String precioStr = editPrecio.getText().toString().trim();
-            String descuentoStr = editDescuento.getText().toString().trim();
+            String descuentoStr = editDescuento != null ? editDescuento.getText().toString().trim() : "";
 
             if (TextUtils.isEmpty(nombre) || TextUtils.isEmpty(cantidadStr) || TextUtils.isEmpty(precioStr)) {
-                Toast.makeText(MainActivity.this, "Nombre, cantidad y precio son obligatorios", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "Campos obligatorios vacíos", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -300,19 +214,253 @@ public class MainActivity extends AppCompatActivity {
                 double descuento = TextUtils.isEmpty(descuentoStr) ? 0.0 : Double.parseDouble(descuentoStr);
 
                 Producto nuevoProducto = new Producto(nombre, cantidad, precio, descuento);
+
                 carritoDeCompras.add(nuevoProducto);
 
-                adaptador.notifyDataSetChanged();
+                if (productoAdapter != null) {
+                    productoAdapter.notifyDataSetChanged();
+                } else {
+                    // Si lo recreamos, NO OLVIDAR pasar el listener de nuevo
+                    productoAdapter = new ProductoAdapter(carritoDeCompras, this::mostrarDialogoEditarProducto);
+                    recyclerViewCarrito.setAdapter(productoAdapter);
+                }
+
                 actualizarTotales();
-                Toast.makeText(MainActivity.this, "Producto añadido al carrito", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "Producto añadido", Toast.LENGTH_SHORT).show();
 
             } catch (NumberFormatException e) {
-                Toast.makeText(MainActivity.this, "Por favor, ingresa números válidos", Toast.LENGTH_LONG).show();
+                Toast.makeText(MainActivity.this, "Números inválidos", Toast.LENGTH_LONG).show();
             }
         });
 
         builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
         builder.create().show();
+    }
+
+    // --- NUEVO MÉTODO: EDITAR PRODUCTO ---
+    private void mostrarDialogoEditarProducto(int position) {
+        Producto productoAEditar = carritoDeCompras.get(position);
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View viewDialogo = LayoutInflater.from(this).inflate(R.layout.dialogo_agregar_producto, null);
+        builder.setView(viewDialogo);
+        builder.setTitle("Editar Producto"); // Título diferente
+
+        final EditText editNombre = viewDialogo.findViewById(R.id.edit_nombre_producto);
+        final EditText editCantidad = viewDialogo.findViewById(R.id.edit_cantidad_producto);
+        final EditText editPrecio = viewDialogo.findViewById(R.id.edit_precio_producto);
+        final EditText editDescuento = viewDialogo.findViewById(R.id.edit_descuento_producto);
+
+        // Rellenar con datos existentes
+        editNombre.setText(productoAEditar.getNombre());
+        editCantidad.setText(String.valueOf(productoAEditar.getCantidad()));
+        editPrecio.setText(String.valueOf(productoAEditar.getPrecioUnitario()));
+        editDescuento.setText(String.valueOf(productoAEditar.getDescuento()));
+
+        builder.setPositiveButton("Guardar Cambios", (dialog, which) -> {
+            String nombre = editNombre.getText().toString().trim();
+            String cantidadStr = editCantidad.getText().toString().trim();
+            String precioStr = editPrecio.getText().toString().trim();
+            String descuentoStr = editDescuento != null ? editDescuento.getText().toString().trim() : "";
+
+            if (TextUtils.isEmpty(nombre) || TextUtils.isEmpty(cantidadStr) || TextUtils.isEmpty(precioStr)) {
+                Toast.makeText(MainActivity.this, "Error: Campos vacíos", Toast.LENGTH_SHORT).show();
+                productoAdapter.notifyItemChanged(position); // Restaurar visualmente si se cancela
+                return;
+            }
+
+            try {
+                int cantidad = Integer.parseInt(cantidadStr);
+                double precio = Double.parseDouble(precioStr);
+                double descuento = TextUtils.isEmpty(descuentoStr) ? 0.0 : Double.parseDouble(descuentoStr);
+
+                // Actualizar objeto existente
+                productoAEditar.setNombre(nombre);
+                productoAEditar.setCantidad(cantidad);
+                productoAEditar.setPrecioUnitario(precio);
+                productoAEditar.setDescuento(descuento);
+
+                productoAdapter.notifyItemChanged(position);
+                actualizarTotales();
+                Toast.makeText(MainActivity.this, "Producto actualizado", Toast.LENGTH_SHORT).show();
+
+            } catch (NumberFormatException e) {
+                Toast.makeText(MainActivity.this, "Números inválidos", Toast.LENGTH_LONG).show();
+            }
+        });
+
+        builder.setNegativeButton("Cancelar", (dialog, which) -> {
+            dialog.cancel();
+            productoAdapter.notifyItemChanged(position); // Importante para swipe cancelado
+        });
+        builder.create().show();
+    }
+
+    private void mostrarDialogoFinalizarCompra() {
+        if (carritoDeCompras.isEmpty()) {
+            Toast.makeText(this, "El carrito está vacío.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View viewDialogo = LayoutInflater.from(this).inflate(R.layout.dialogo_finalizar_compra, null);
+        builder.setView(viewDialogo);
+
+        final EditText editNombreTienda = viewDialogo.findViewById(R.id.edit_nombre_tienda);
+        final EditText editDireccionTienda = viewDialogo.findViewById(R.id.edit_direccion_tienda);
+
+        // Configuración del Mapa
+        mapaDelDialogo = viewDialogo.findViewById(R.id.mapa_dialogo);
+        mapaDelDialogo.setTileSource(TileSourceFactory.MAPNIK);
+        mapaDelDialogo.setMultiTouchControls(true);
+        mapaDelDialogo.getController().setZoom(15.0);
+
+        GeoPoint startPoint = new GeoPoint(-33.4489, -70.6693); // Santiago por defecto
+        mapaDelDialogo.getController().setCenter(startPoint);
+        ultimaUbicacionEncontrada = null;
+
+        marcadorDeTienda = new Marker(mapaDelDialogo);
+        marcadorDeTienda.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+
+        // Eventos del Mapa
+        MapEventsReceiver mapEventsReceiver = new MapEventsReceiver() {
+            @Override
+            public boolean singleTapConfirmedHelper(GeoPoint p) {
+                actualizarPosicionMarcadorManualmente(p, editDireccionTienda, editNombreTienda);
+                return true;
+            }
+            @Override public boolean longPressHelper(GeoPoint p) { return false; }
+        };
+        MapEventsOverlay mapEventsOverlay = new MapEventsOverlay(mapEventsReceiver);
+        mapaDelDialogo.getOverlays().add(0, mapEventsOverlay);
+
+        // Geocoding
+        editDireccionTienda.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (searchRunnable != null) searchHandler.removeCallbacks(searchRunnable);
+                searchRunnable = () -> {
+                    String address = s.toString();
+                    if (!address.trim().isEmpty()) {
+                        new GeocodeTask().execute(address);
+                    }
+                };
+                searchHandler.postDelayed(searchRunnable, 1000);
+            }
+        });
+
+        builder.setPositiveButton("Guardar Compra", (dialog, which) -> {
+            String nombreTienda = editNombreTienda.getText().toString().trim();
+            String direccionTienda = editDireccionTienda.getText().toString().trim();
+
+            if (TextUtils.isEmpty(nombreTienda)) {
+                Toast.makeText(this, "El nombre de la tienda es obligatorio", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            procesarYGuardarCompra(nombreTienda, direccionTienda);
+        });
+
+        builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
+        builder.create().show();
+    }
+
+    // --- Lógica de Guardado (Local + Firebase) ---
+
+    private void procesarYGuardarCompra(String nombreTienda, String direccionTienda) {
+        Date fechaActual = new Date();
+
+        String totalString = textoTotalFinal.getText().toString().replace("$", "").replace(",", ".");
+        double totalCompra = 0.0;
+        try {
+            totalCompra = Double.parseDouble(totalString);
+        } catch (NumberFormatException e) {
+            e.printStackTrace();
+        }
+
+        List<DetalleCompra> detallesDeLaCompra = new ArrayList<>();
+        for (Producto p : carritoDeCompras) {
+            detallesDeLaCompra.add(new DetalleCompra(
+                    p.getNombre(),
+                    p.getCantidad(),
+                    p.getPrecioUnitario(),
+                    p.getDescuento(),
+                    p.calcularTotal()
+            ));
+        }
+
+        double lat = 0.0, lon = 0.0;
+        if (ultimaUbicacionEncontrada != null) {
+            lat = ultimaUbicacionEncontrada.getLatitude();
+            lon = ultimaUbicacionEncontrada.getLongitude();
+        }
+
+        Compra nuevaCompra = new Compra(fechaActual, nombreTienda, direccionTienda, totalCompra, detallesDeLaCompra, lat, lon);
+
+        boolean exitoLocal = false;
+        try {
+            dbHelper.insertarCompra(nuevaCompra);
+            exitoLocal = true;
+        } catch (Exception e) {
+            Log.e("DB_LOCAL", "Error guardando localmente", e);
+        }
+
+        FirebaseUser user = mAuth.getCurrentUser();
+
+        if (user != null) {
+            String userId = user.getUid();
+            db.collection("usuarios").document(userId).collection("compras")
+                    .add(nuevaCompra)
+                    .addOnSuccessListener(documentReference -> {
+                        Toast.makeText(MainActivity.this, "¡Guardado en la Nube y Local!", Toast.LENGTH_LONG).show();
+                        limpiarDespuesDeGuardar();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(MainActivity.this, "Guardado local, pero error en Nube: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        limpiarDespuesDeGuardar();
+                    });
+        } else {
+            Toast.makeText(this, "No hay usuario logueado. Se guardó solo localmente.", Toast.LENGTH_LONG).show();
+            if(exitoLocal) limpiarDespuesDeGuardar();
+        }
+    }
+
+    private void limpiarDespuesDeGuardar() {
+        runOnUiThread(() -> {
+            Log.d("DEBUG_APP", "--- INICIANDO LIMPIEZA TOTAL ---");
+
+            carritoDeCompras = new ArrayList<>();
+
+            // IMPORTANTE: Al recrear el adaptador, volvemos a pasar el listener (this::mostrarDialogoEditarProducto)
+            productoAdapter = new ProductoAdapter(carritoDeCompras, this::mostrarDialogoEditarProducto);
+            recyclerViewCarrito.setAdapter(productoAdapter);
+            recyclerViewCarrito.invalidate();
+
+            textoSubtotal.setText("$0.00");
+            if (textoAhorro != null) textoAhorro.setText("-$0.00");
+            textoTotalFinal.setText("$0.00");
+
+            ultimaUbicacionEncontrada = null;
+            if (mapaDelDialogo != null && marcadorDeTienda != null) {
+                mapaDelDialogo.getOverlays().remove(marcadorDeTienda);
+            }
+
+            Toast.makeText(MainActivity.this, "Carrito vaciado", Toast.LENGTH_SHORT).show();
+        });
+    }
+
+
+    // --- Lógica del Mapa (Helpers) ---
+
+    private void actualizarPosicionMarcadorManualmente(GeoPoint p, EditText editDireccion, EditText editNombre) {
+        ultimaUbicacionEncontrada = p;
+        mapaDelDialogo.getOverlays().remove(marcadorDeTienda);
+        marcadorDeTienda.setPosition(p);
+        marcadorDeTienda.setTitle(editNombre.getText().toString());
+        mapaDelDialogo.getOverlays().add(marcadorDeTienda);
+        mapaDelDialogo.invalidate();
+        new ReverseGeocodeTask(editDireccion).execute(p);
     }
 
     private class GeocodeTask extends AsyncTask<String, Void, GeoPoint> {
@@ -326,22 +474,18 @@ public class MainActivity extends AppCompatActivity {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setRequestProperty("User-Agent", getPackageName());
-
                 BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                 StringBuilder response = new StringBuilder();
                 String inputLine;
-                while ((inputLine = in.readLine()) != null) {
-                    response.append(inputLine);
-                }
+                while ((inputLine = in.readLine()) != null) response.append(inputLine);
                 in.close();
-
                 JSONArray jsonArray = new JSONArray(response.toString());
                 if (jsonArray.length() > 0) {
                     JSONObject result = jsonArray.getJSONObject(0);
                     return new GeoPoint(result.getDouble("lat"), result.getDouble("lon"));
                 }
             } catch (Exception e) {
-                Log.e("GeocodeTask", "Error en geocodificación", e);
+                Log.e("GeocodeTask", "Error", e);
             }
             return null;
         }
@@ -349,7 +493,6 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected void onPostExecute(GeoPoint resultPoint) {
             if (mapaDelDialogo == null || marcadorDeTienda == null) return;
-
             if (resultPoint != null) {
                 ultimaUbicacionEncontrada = resultPoint;
                 mapaDelDialogo.getOverlays().remove(marcadorDeTienda);
@@ -358,20 +501,13 @@ public class MainActivity extends AppCompatActivity {
                 mapaDelDialogo.getController().animateTo(resultPoint);
                 mapaDelDialogo.getController().setZoom(17.0);
                 mapaDelDialogo.invalidate();
-            } else {
-                mapaDelDialogo.getOverlays().remove(marcadorDeTienda);
-                mapaDelDialogo.invalidate();
-                ultimaUbicacionEncontrada = null;
             }
         }
     }
 
     private class ReverseGeocodeTask extends AsyncTask<GeoPoint, Void, String> {
         private EditText targetEditText;
-
-        ReverseGeocodeTask(EditText target) {
-            this.targetEditText = target;
-        }
+        ReverseGeocodeTask(EditText target) { this.targetEditText = target; }
 
         @Override
         protected String doInBackground(GeoPoint... params) {
@@ -384,21 +520,15 @@ public class MainActivity extends AppCompatActivity {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setRequestProperty("User-Agent", getPackageName());
-
                 BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                 StringBuilder response = new StringBuilder();
                 String inputLine;
-                while ((inputLine = in.readLine()) != null) {
-                    response.append(inputLine);
-                }
+                while ((inputLine = in.readLine()) != null) response.append(inputLine);
                 in.close();
-
                 JSONObject jsonObject = new JSONObject(response.toString());
-                if (jsonObject.has("display_name")) {
-                    return jsonObject.getString("display_name");
-                }
+                if (jsonObject.has("display_name")) return jsonObject.getString("display_name");
             } catch (Exception e) {
-                Log.e("ReverseGeocodeTask", "Error en geocodificación inversa", e);
+                Log.e("ReverseGeocodeTask", "Error", e);
             }
             return null;
         }
@@ -411,6 +541,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 }
+
+
+
 
 
 

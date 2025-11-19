@@ -136,10 +136,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     // --- Métodos para Compras ---
 
-    /**
-     * Inserta una compra completa (cabecera y detalles) en la base de datos.
-     * @param compra El objeto Compra a insertar.
-     */
+
+
     public void insertarCompra(Compra compra) {
         SQLiteDatabase db = this.getWritableDatabase();
         try {
@@ -159,11 +157,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 for (DetalleCompra detalle : compra.getDetalles()) {
                     ContentValues cvDetalle = new ContentValues();
                     cvDetalle.put(COL_COMPRA_ID, compraId);
-                    cvDetalle.put(COL_PRODUCTO, detalle.getNombre());
+
+                    // --- CORRECCIONES AQUÍ ---
+                    // Usamos los nuevos getters del modelo actualizado
+                    cvDetalle.put(COL_PRODUCTO, detalle.getNombreProducto()); // Antes getNombre()
                     cvDetalle.put(COL_CANTIDAD, detalle.getCantidad());
-                    cvDetalle.put(COL_PRECIO, detalle.getPrecio());
+                    cvDetalle.put(COL_PRECIO, detalle.getPrecioUnitario());   // Antes getPrecio()
                     cvDetalle.put(COL_DESCUENTO, detalle.getDescuento());
-                    cvDetalle.put(COL_TOTAL_PRODUCTO, detalle.getTotal());
+                    cvDetalle.put(COL_TOTAL_PRODUCTO, detalle.getTotalLinea()); // Antes getTotal()
+
                     db.insert(TABLE_DETALLES, null, cvDetalle);
                 }
             }
@@ -173,6 +175,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             db.close();
         }
     }
+
 
     /**
      * Obtiene todas las compras de la base de datos, incluyendo sus detalles.

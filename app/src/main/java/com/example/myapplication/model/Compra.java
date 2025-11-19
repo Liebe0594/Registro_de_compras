@@ -3,26 +3,22 @@ package com.example.myapplication.model;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 public class Compra implements Serializable {
-    private long id;
     private Date fecha;
-
     private String nombreTienda;
     private String direccionTienda;
-
     private double total;
     private List<DetalleCompra> detalles;
-
-    // Nuevos campos para geolocalización
     private double latitud;
     private double longitud;
 
-    // Constructor con latitud y longitud opcional
-    public Compra(Date fecha, String nombreTienda, String direccionTienda, double total,
-                  List<DetalleCompra> detalles, double latitud, double longitud) {
-        this.id = System.currentTimeMillis();
+    // --- 1. CONSTRUCTOR VACÍO (OBLIGATORIO PARA FIREBASE) ---
+    public Compra() {
+    }
+
+    // --- 2. CONSTRUCTOR COMPLETO ---
+    public Compra(Date fecha, String nombreTienda, String direccionTienda, double total, List<DetalleCompra> detalles, double latitud, double longitud) {
         this.fecha = fecha;
         this.nombreTienda = nombreTienda;
         this.direccionTienda = direccionTienda;
@@ -32,19 +28,21 @@ public class Compra implements Serializable {
         this.longitud = longitud;
     }
 
-    // Constructor sin lat/long (para compatibilidad)
-    public Compra(Date fecha, String nombreTienda, String direccionTienda, double total,
-                  List<DetalleCompra> detalles) {
-        this(fecha, nombreTienda, direccionTienda, total, detalles, 0.0, 0.0);
-    }
-
-    // Getters y setters
-    public long getId() { return id; }
+    // --- 3. GETTERS Y SETTERS (OBLIGATORIOS) ---
     public Date getFecha() { return fecha; }
+    public void setFecha(Date fecha) { this.fecha = fecha; }
+
     public String getNombreTienda() { return nombreTienda; }
+    public void setNombreTienda(String nombreTienda) { this.nombreTienda = nombreTienda; }
+
     public String getDireccionTienda() { return direccionTienda; }
+    public void setDireccionTienda(String direccionTienda) { this.direccionTienda = direccionTienda; }
+
     public double getTotal() { return total; }
+    public void setTotal(double total) { this.total = total; }
+
     public List<DetalleCompra> getDetalles() { return detalles; }
+    public void setDetalles(List<DetalleCompra> detalles) { this.detalles = detalles; }
 
     public double getLatitud() { return latitud; }
     public void setLatitud(double latitud) { this.latitud = latitud; }
@@ -52,26 +50,11 @@ public class Compra implements Serializable {
     public double getLongitud() { return longitud; }
     public void setLongitud(double longitud) { this.longitud = longitud; }
 
+    // Método para mostrar en la lista (si usas ListView simple)
     @Override
     public String toString() {
-        android.text.format.DateFormat df = new android.text.format.DateFormat();
-        String fechaFormateada = df.format("dd/MM/yyyy", this.fecha).toString();
-
-        StringBuilder detallesStr = new StringBuilder();
-        for (DetalleCompra detalle : detalles) {
-            detallesStr.append(detalle.getNombre())
-                    .append(" x").append(detalle.getCantidad())
-                    .append(" - $").append(String.format(Locale.US, "%.2f", detalle.getTotal()))
-                    .append("\n");
-        }
-
-        return "Tienda: " + nombreTienda +
-                "\nDirección: " + direccionTienda +
-                " (" + fechaFormateada + ")\nTotal: " + String.format(Locale.US, "$%.2f", total) +
-                "\nProductos:\n" + detallesStr.toString();
+        return nombreTienda + "\n" + fecha.toString() + "\nTotal: $" + String.format("%.2f", total);
     }
 }
-// Se crea la clase `Compra` para encapsular la información de una transacción. Incluye detalles de la tienda, total, lista de productos y campos para geolocalización (latitud y longitud).
-//La clase implementa `Serializable` para facilitar el paso de datos entre componentes de Android.
 
 

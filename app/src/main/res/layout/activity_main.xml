@@ -6,109 +6,52 @@
     android:padding="16dp"
     tools:context=".MainActivity">
 
-    <!-- Título superior -->
-    <TextView
-        android:id="@+id/titulo_carrito"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_centerHorizontal="true"
-        android:layout_marginBottom="16dp"
-        android:text="Carrito de Compras"
-        android:textSize="24sp"
-        android:textStyle="bold" />
-
-    <!-- Lista de compras que ocupa el espacio central -->
-    <ListView
-        android:id="@+id/lista_compras"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_above="@+id/layout_totales"
-        android:layout_below="@id/titulo_carrito"
-        android:layout_marginBottom="16dp" />
-
-    <!-- Contenedor para los totales, justo encima de los botones -->
+    <!-- Títulos y Totales en la parte superior -->
     <LinearLayout
         android:id="@+id/layout_totales"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_above="@+id/layout_botones_inferiores"
-        android:layout_marginBottom="16dp"
-        android:background="#F1F1F1"
         android:orientation="vertical"
-        android:padding="8dp">
+        android:background="#EEE"
+        android:padding="10dp"
+        android:layout_marginBottom="10dp">
 
-        <LinearLayout
-            android:layout_width="match_parent"
+        <TextView
+            android:id="@+id/texto_subtotal"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:text="Subtotal: $0.00"
+            android:textSize="16sp" />
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Subtotal:" />
-
-            <TextView
-                android:id="@+id/texto_subtotal"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="$0.00" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
+        <TextView
+            android:id="@+id/texto_ahorro"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:text="Ahorro: -$0.00"
+            android:textColor="#4CAF50"
+            android:textSize="16sp" />
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Ahorro:"
-                android:textColor="#008000" />
-
-            <TextView
-                android:id="@+id/texto_ahorro"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="-$0.00"
-                android:textColor="#008000" />
-        </LinearLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="4dp"
-            android:layout_marginBottom="4dp"
-            android:background="?android:attr/listDivider" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
+        <TextView
+            android:id="@+id/texto_total_final"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Total Final:"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/texto_total_final"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="$0.00"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-        </LinearLayout>
+            android:text="$0.00"
+            android:textSize="24sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Contenedor de botones, anclado al final de la pantalla -->
+    <!-- RecyclerView (Lista de Productos) -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recycler_view_carrito"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/layout_totales"
+        android:layout_above="@id/layout_botones"
+        android:layout_marginBottom="10dp"/>
+
+    <!-- Botones en la parte inferior -->
     <LinearLayout
-        android:id="@+id/layout_botones_inferiores"
+        android:id="@+id/layout_botones"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
@@ -120,21 +63,41 @@
             android:layout_height="wrap_content"
             android:text="Agregar Producto" />
 
+        <!-- === NUEVO BOTÓN LIMPIAR === -->
+        <!-- Color rojo (#D32F2F) para indicar acción de borrado -->
         <Button
-            android:id="@+id/boton_finalizar_compra"
+            android:id="@+id/boton_limpiar_carrito"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Finalizar y Guardar Compra" />
+            android:text="Limpiar Carrito"
+            android:backgroundTint="#D32F2F"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="4dp"/>
+        <!-- =========================== -->
 
-        <Button
-            android:id="@+id/boton_ver_historial"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Ver Historial de Compras" />
-        <!-- El color del botón lo puedes personalizar con temas -->
-        <!-- android:backgroundTint="?attr/colorSecondary" -->
+            android:orientation="horizontal">
 
+            <Button
+                android:id="@+id/boton_ver_historial"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Historial"
+                android:layout_marginEnd="5dp"/>
+
+            <Button
+                android:id="@+id/boton_finalizar_compra"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Finalizar"
+                android:layout_marginStart="5dp"/>
+        </LinearLayout>
     </LinearLayout>
 
 </RelativeLayout>

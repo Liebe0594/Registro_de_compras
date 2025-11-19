@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
+    // Agrega esta línea para activar el plugin de Google Services
+    id 'com.google.gms.google-services' // <--- NUEVO
 }
 
 android {
@@ -29,13 +31,25 @@ android {
 }
 
 dependencies {
-
+    // Tus dependencias originales (MANTENLAS TODAS)
     implementation libs.appcompat
     implementation libs.material
+    implementation "androidx.core:core-splashscreen:1.0.1"
     implementation libs.activity
     implementation libs.constraintlayout
     implementation 'org.osmdroid:osmdroid-android:6.1.14'
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
+
+    // --- INICIO DE AGREGADOS DE FIREBASE ---
+
+    // Importar la plataforma BOM de Firebase (Gestiona las versiones por ti)
+    implementation platform('com.google.firebase:firebase-bom:32.8.0')
+
+    // Dependencias específicas de Firebase (Sin poner número de versión)
+    implementation 'com.google.firebase:firebase-auth'
+    implementation 'com.google.firebase:firebase-firestore'
+
+    // --- FIN DE AGREGADOS DE FIREBASE ---
 }

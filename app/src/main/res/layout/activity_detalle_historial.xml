@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Encabezado -->
+    <TextView
+        android:id="@+id/txt_titulo_tienda"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Nombre Tienda"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:gravity="center"/>
+
+    <TextView
+        android:id="@+id/txt_subtitulo_fecha"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Fecha"
+        android:gravity="center"
+        android:layout_marginBottom="16dp"/>
+
+    <!-- Botón para ver el mapa -->
+    <Button
+        android:id="@+id/btn_ver_mapa"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="📍 Ver Ubicación en el Mapa"
+        android:backgroundTint="#1976D2"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="10dp"/>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Productos Comprados:"
+        android:textStyle="bold"
+        android:layout_marginBottom="5dp"/>
+
+    <!-- Lista de Productos -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recycler_detalles"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#F5F5F5"/>
+
+    <!-- Total Final -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:background="#E0E0E0">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="TOTAL PAGADO:"
+            android:textStyle="bold"
+            android:textSize="18sp"/>
+
+        <TextView
+            android:id="@+id/txt_total_final_detalle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="$0"
+            android:textStyle="bold"
+            android:textSize="20sp"
+            android:textColor="#D32F2F"/>
+    </LinearLayout>
+
+</LinearLayout>
