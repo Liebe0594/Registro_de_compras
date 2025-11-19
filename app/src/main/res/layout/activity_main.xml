@@ -6,15 +6,34 @@
     android:padding="16dp"
     tools:context=".MainActivity">
 
-    <!-- Títulos y Totales en la parte superior -->
+    <!-- 1. EL BOTÓN DE SALIR AHORA ESTÁ AFUERA DEL LinearLayout -->
+    <!-- Esto permite que se pegue a la esquina superior derecha -->
+    <Button
+        android:id="@+id/boton_cerrar_sesion"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentRight="true"
+        android:layout_marginTop="0dp"
+        android:layout_marginBottom="5dp"
+        android:backgroundTint="#607D8B"
+        android:elevation="2dp"
+        android:text="Salir"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp" />
+
+    <!-- 2. Títulos y Totales -->
+    <!-- Agregamos layout_below para que no se solape con el botón si la pantalla es chica -->
     <LinearLayout
         android:id="@+id/layout_totales"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
+        android:layout_below="@id/boton_cerrar_sesion"
+        android:layout_marginBottom="10dp"
         android:background="#EEE"
-        android:padding="10dp"
-        android:layout_marginBottom="10dp">
+        android:orientation="vertical"
+        android:padding="10dp">
 
         <TextView
             android:id="@+id/texto_subtotal"
@@ -64,7 +83,6 @@
             android:text="Agregar Producto" />
 
         <!-- === NUEVO BOTÓN LIMPIAR === -->
-        <!-- Color rojo (#D32F2F) para indicar acción de borrado -->
         <Button
             android:id="@+id/boton_limpiar_carrito"
             android:layout_width="match_parent"
@@ -101,4 +119,5 @@
     </LinearLayout>
 
 </RelativeLayout>
+
 

@@ -16,12 +16,11 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.recyclerview.widget.ItemTouchHelper; // IMPORTANTE PARA EL SWIPE
+import androidx.recyclerview.widget.ItemTouchHelper;
 
 import com.example.myapplication.model.Compra;
 import com.example.myapplication.model.DetalleCompra;
@@ -58,7 +57,10 @@ public class MainActivity extends AppCompatActivity {
     private ProductoAdapter productoAdapter;
 
     private TextView textoSubtotal, textoAhorro, textoTotalFinal;
+
+    // Botones de acción
     private Button botonAgregarProducto, botonFinalizarCompra, botonVerHistorial, botonLimpiarCarrito;
+    private Button botonCerrarSesion; // Botón para salir
 
     // --- Datos y Base de Datos Local ---
     private DatabaseHelper dbHelper;
@@ -102,12 +104,13 @@ public class MainActivity extends AppCompatActivity {
         botonFinalizarCompra = findViewById(R.id.boton_finalizar_compra);
         botonVerHistorial = findViewById(R.id.boton_ver_historial);
         botonLimpiarCarrito = findViewById(R.id.boton_limpiar_carrito);
+        botonCerrarSesion = findViewById(R.id.boton_cerrar_sesion); // Vincular botón salir
 
         // --- CONFIGURACIÓN DEL RECYCLERVIEW (CARRITO) ---
         carritoDeCompras = new ArrayList<>();
         recyclerViewCarrito = findViewById(R.id.recycler_view_carrito);
 
-        // 1. Inicializamos el adaptador pasándole: la lista Y el método para editar (this::mostrarDialogoEditarProducto)
+        // 1. Inicializamos el adaptador pasándole: la lista Y el método para editar
         productoAdapter = new ProductoAdapter(carritoDeCompras, this::mostrarDialogoEditarProducto);
 
         recyclerViewCarrito.setLayoutManager(new LinearLayoutManager(this));
@@ -161,6 +164,28 @@ public class MainActivity extends AppCompatActivity {
                     .setTitle("¿Limpiar Carrito?")
                     .setMessage("¿Estás seguro de que deseas eliminar todos los productos?")
                     .setPositiveButton("Sí, Limpiar", (dialog, which) -> limpiarDespuesDeGuardar())
+                    .setNegativeButton("Cancelar", null)
+                    .show();
+        });
+
+        // --- LÓGICA DE CERRAR SESIÓN ---
+        botonCerrarSesion.setOnClickListener(v -> {
+            new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("Cerrar Sesión")
+                    .setMessage("¿Deseas salir de la aplicación?")
+                    .setPositiveButton("Sí, Salir", (dialog, which) -> {
+                        // 1. Cerrar sesión en Firebase
+                        FirebaseAuth.getInstance().signOut();
+
+                        // 2. Redirigir al Login (Asegúrate de que tu clase se llame LoginActivity)
+                        Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+
+                        // Esto evita que el usuario pueda volver atrás con el botón "Back"
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+
+                        startActivity(intent);
+                        finish();
+                    })
                     .setNegativeButton("Cancelar", null)
                     .show();
         });
@@ -220,7 +245,6 @@ public class MainActivity extends AppCompatActivity {
                 if (productoAdapter != null) {
                     productoAdapter.notifyDataSetChanged();
                 } else {
-                    // Si lo recreamos, NO OLVIDAR pasar el listener de nuevo
                     productoAdapter = new ProductoAdapter(carritoDeCompras, this::mostrarDialogoEditarProducto);
                     recyclerViewCarrito.setAdapter(productoAdapter);
                 }
@@ -237,14 +261,14 @@ public class MainActivity extends AppCompatActivity {
         builder.create().show();
     }
 
-    // --- NUEVO MÉTODO: EDITAR PRODUCTO ---
+    // --- MÉTODO: EDITAR PRODUCTO ---
     private void mostrarDialogoEditarProducto(int position) {
         Producto productoAEditar = carritoDeCompras.get(position);
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         View viewDialogo = LayoutInflater.from(this).inflate(R.layout.dialogo_agregar_producto, null);
         builder.setView(viewDialogo);
-        builder.setTitle("Editar Producto"); // Título diferente
+        builder.setTitle("Editar Producto");
 
         final EditText editNombre = viewDialogo.findViewById(R.id.edit_nombre_producto);
         final EditText editCantidad = viewDialogo.findViewById(R.id.edit_cantidad_producto);
@@ -265,7 +289,7 @@ public class MainActivity extends AppCompatActivity {
 
             if (TextUtils.isEmpty(nombre) || TextUtils.isEmpty(cantidadStr) || TextUtils.isEmpty(precioStr)) {
                 Toast.makeText(MainActivity.this, "Error: Campos vacíos", Toast.LENGTH_SHORT).show();
-                productoAdapter.notifyItemChanged(position); // Restaurar visualmente si se cancela
+                productoAdapter.notifyItemChanged(position);
                 return;
             }
 
@@ -291,7 +315,7 @@ public class MainActivity extends AppCompatActivity {
 
         builder.setNegativeButton("Cancelar", (dialog, which) -> {
             dialog.cancel();
-            productoAdapter.notifyItemChanged(position); // Importante para swipe cancelado
+            productoAdapter.notifyItemChanged(position);
         });
         builder.create().show();
     }
@@ -432,7 +456,7 @@ public class MainActivity extends AppCompatActivity {
 
             carritoDeCompras = new ArrayList<>();
 
-            // IMPORTANTE: Al recrear el adaptador, volvemos a pasar el listener (this::mostrarDialogoEditarProducto)
+            // IMPORTANTE: Al recrear el adaptador, volvemos a pasar el listener
             productoAdapter = new ProductoAdapter(carritoDeCompras, this::mostrarDialogoEditarProducto);
             recyclerViewCarrito.setAdapter(productoAdapter);
             recyclerViewCarrito.invalidate();
@@ -541,6 +565,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 }
+
 
 
 
